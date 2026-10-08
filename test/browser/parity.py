@@ -5,10 +5,10 @@ from PIL import Image
 from common import ROOT, SCRIPTED_JS, launch, watch, ignorable
 from playwright.sync_api import sync_playwright
 
-LEGACY = ROOT / "dist" / "legacy-wrapped.html"
+LEGACY = ROOT / "test/browser/out/legacy-wrapped.html"
 frag = (ROOT / "test/golden/legacy-index.html").read_text()
 LEGACY.write_text('<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + frag + '</body></html>')
-NEW = ROOT / "dist" / "index.html"
+NEW = ROOT / "index.html"
 
 def snap(page, url, frames, withCfg):
     page.route("**/fonts.g*/**", lambda r: r.abort())
@@ -46,6 +46,6 @@ with sync_playwright() as p:
             print(("OK   " if ok else "FAIL ") + f"{vp} frames={frames}: 差のあるピクセル {n} / 最大差 {mx}")
             if not ok:
                 fails += 1
-                Image.fromarray(np.clip(d * 8, 0, 255).astype(np.uint8)).save(ROOT / f"dist/parity-diff-{vp[0]}-{frames}.png")
+                Image.fromarray(np.clip(d * 8, 0, 255).astype(np.uint8)).save(ROOT / f"test/browser/out/parity-diff-{vp[0]}-{frames}.png")
     b.close()
 sys.exit(1 if fails else 0)

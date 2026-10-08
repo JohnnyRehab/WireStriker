@@ -3,7 +3,7 @@ import sys, pathlib
 from common import ROOT, launch, watch, ignorable
 from playwright.sync_api import sync_playwright
 
-url = (ROOT / "dist" / "index.html").as_uri() + "#debug"
+url = (ROOT / "index.html").as_uri() + "#debug"
 fails = []
 def check(ok, msg):
     print(("OK   " if ok else "FAIL ") + msg)
@@ -18,7 +18,7 @@ with sync_playwright() as p:
         st = page.inner_text("#st")
         check("決定性テスト OK #7b69d840 / 3600f / 撃墜62" in st, f"[{name}] 決定性テスト表示: {st}")
         check(page.evaluate("document.documentElement.scrollWidth<=innerWidth && document.documentElement.scrollHeight<=innerHeight"), f"[{name}] ページがはみ出さない")
-        page.screenshot(path=str(ROOT / f"dist/shot-{name}-title.png"))
+        page.screenshot(path=str(ROOT / f"test/browser/out/shot-{name}-title.png"))
         page.keyboard.press("Enter"); page.wait_for_timeout(300)
         check(page.evaluate("__ws.mode")=="play", f"[{name}] Enter で開始")
         page.keyboard.down("KeyZ"); page.keyboard.down("ArrowRight"); page.keyboard.down("KeyW")
@@ -29,10 +29,10 @@ with sync_playwright() as p:
         check(page.evaluate("__ws.mode")=="pause", f"[{name}] P で一時停止")
         t1 = page.evaluate("__ws.S.t"); page.wait_for_timeout(300)
         check(page.evaluate("__ws.S.t")==t1, f"[{name}] 一時停止中は進まない")
-        page.screenshot(path=str(ROOT / f"dist/shot-{name}-pause.png"))
+        page.screenshot(path=str(ROOT / f"test/browser/out/shot-{name}-pause.png"))
         # 長めに実行してスクリーンショット
         page.keyboard.press("Enter"); page.wait_for_timeout(6000)
-        page.screenshot(path=str(ROOT / f"dist/shot-{name}-play.png"))
+        page.screenshot(path=str(ROOT / f"test/browser/out/shot-{name}-play.png"))
         check(page.evaluate("document.documentElement.scrollWidth<=innerWidth"), f"[{name}] プレイ中もはみ出さない")
         bad = [e for e in errs if not ignorable(e)]
         check(not bad, f"[{name}] コンソールにエラー・警告なし {bad[:3]}")
@@ -45,7 +45,7 @@ with sync_playwright() as p:
     page.evaluate("""()=>{const S=__ws.S;S.sc.length=0;S.en.length=0;for(const [x,z,t,h,r] of [[-3,40,'flt',3.5,1.8],[4,60,'flt',3.5,1.8],[0,80,'pil',5,0.9],[-6,100,'flt',3.5,1.8]])S.sc.push({t,x,z,h,r});}""")
     page.evaluate("()=>new Promise(r=>{let n=0;const f=()=>{if(++n>=40)r();else requestAnimationFrame(f)};requestAnimationFrame(f)})")
     page.add_style_tag(content="#ov{display:none!important}")
-    page.screenshot(path=str(ROOT / "dist/shot-air.png")); page.close()
+    page.screenshot(path=str(ROOT / "test/browser/out/shot-air.png")); page.close()
     # デバッグ用 apply: 不正な設定は適用されず、正しい設定は反映される
     page = b.new_page(viewport={"width": 1280, "height": 720}); errs = []; watch(page, errs)
     page.goto(url); page.wait_for_timeout(500)

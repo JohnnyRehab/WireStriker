@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ワイヤー・ストライカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Share+Tech+Mono&display=swap">
+<link rel="stylesheet" href="style.css">
+<style>html,body{margin:0}</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" aria-label="ゲーム画面"></canvas>
+  <canvas id="glow1"></canvas>
+  <canvas id="glow2"></canvas>
+
+  <div class="hud" aria-live="off">
+    <div class="tl">
+      <div><div class="lbl">SCORE</div><div class="val" id="score">000000</div></div>
+      <div><div class="lbl">DIST</div><div class="val" id="dist">0000<span style="font-size:12px"> m</span></div></div>
+    </div>
+    <div class="hp">
+      <div class="lbl">ARMOR</div>
+      <div class="bar"><div class="fill" id="hpfill"></div><div class="ticks"></div></div>
+    </div>
+    <button id="pausebtn" type="button">PAUSE [P]</button>
+    <div class="bl">
+      <div class="wrow"><b>Z</b><span>VULCAN</span><span class="lbl">連射・ロック時は追尾</span></div>
+      <div class="wrow"><b>X</b><span>MISSILE</span><span class="pips" id="pips"></span></div>
+    </div>
+    <div class="br">
+      <div id="lock">NO LOCK</div>
+      <div id="st">決定性テスト 実行中</div>
+    </div>
+  </div>
+
+  <div id="ov">
+    <div class="panel">
+      <div class="kicker">WIRE STRIKER ・ PROTOTYPE 0.1</div>
+      <h1 id="ovt">ワイヤー・ストライカー</h1>
+      <p class="sub" id="ovs">全オブジェクトがノーテクスチャのワイヤーフレーム。奥から迫る敵をロックオンして撃ち落とし、障害物と弾を避けて進みます。</p>
+      <p class="res" id="ovr" hidden></p>
+      <dl class="keys">
+        <dt>W A S D / 矢印</dt><dd>移動と上昇・下降(両方を合算)</dd>
+        <dt>Space</dt><dd>ジャンプ。A と → のように、2本を左右へ開いても出ます</dd>
+        <dt>Q / E</dt><dd>ダッシュ。入力中の方向へ進み、終わりに隙ができます。方向入力がなければ Q は左、E は右</dd>
+        <dt>Z</dt><dd>バルカン。押し続けて連射。ロック中は追尾します</dd>
+        <dt>X</dt><dd>ミサイル3発。弾数制で、時間とともに回復します</dd>
+        <dt>P / Esc</dt><dd>一時停止</dd>
+        <dt>ゲームパッド</dt><dd>左右スティックで移動、L1 / R1 でダッシュ、L2 / R2 で武器、A でジャンプ</dd>
+      </dl>
+      <button id="go" type="button">START [Enter]</button>
+      <p class="note">タッチ操作は未対応です。機体・敵・背景は仮のデザインで、操作の数値はすべて設計値です。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ビルド不要。このファイルを開くだけで動く。読み込み順が依存の順(test/load.js もこの並びを読む) -->
+<script src="js/data/default-config.js"></script>
+<script src="js/data/validate.js"></script>
+<script src="js/data/config.js"></script>
+<script src="js/core/rng.js"></script>
+<script src="js/core/sim.js"></script>
+<script src="js/core/selftest.js"></script>
+<script src="js/render/matrix.js"></script>
+<script src="js/render/shaders.js"></script>
+<script src="js/render/geometry.js"></script>
+<script src="js/render/renderer.js"></script>
+<script src="js/input/input.js"></script>
+<script src="js/ui/hud.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
