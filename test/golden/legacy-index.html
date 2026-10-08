@@ -1,0 +1,1026 @@
+<title>ワイヤー・ストライカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: 全画面のゲーム面。HUDは細線とモノスペースで四隅に置く。ネオンの発光はキャンバスの重ね合わせで作る。
+   意図的に単一テーマ(黒地のネオン画面)。 */
+:root{
+  --bg:#02040a;
+  --fg:#c9ecff;
+  --dim:#6d90b0;
+  --cyan:#4df0ff;
+  --blue:#3d7bff;
+  --warn:#ff4d8d;
+  --amber:#ffc24d;
+  --line:rgba(77,240,255,.38);
+  --panel:rgba(2,6,14,.88);
+  --font-d:'Chakra Petch','Hiragino Sans','Noto Sans JP','Yu Gothic',sans-serif;
+  --font-m:'Share Tech Mono','SFMono-Regular',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-d);overflow:hidden}
+#stage{position:fixed;inset:0;background:var(--bg);overflow:hidden;user-select:none;-webkit-user-select:none}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#glow1{filter:blur(4px) brightness(1.35);mix-blend-mode:screen;pointer-events:none}
+#glow2{filter:blur(16px) brightness(2.3);mix-blend-mode:screen;opacity:.6;pointer-events:none}
+
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-m);color:var(--cyan);text-shadow:0 0 8px rgba(77,240,255,.5)}
+.lbl{font-size:11px;letter-spacing:.18em;color:var(--dim);text-shadow:none}
+.val{font-size:26px;letter-spacing:.06em;line-height:1.1;font-variant-numeric:tabular-nums}
+.tl{position:absolute;top:16px;left:16px;display:flex;gap:24px}
+.hp{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:min(40vw,360px)}
+.hp .bar{position:relative;height:12px;border:1px solid var(--line);margin-top:6px;background:rgba(77,240,255,.06)}
+.hp .fill{position:absolute;inset:1px auto 1px 1px;width:calc(100% - 2px);background:linear-gradient(90deg,var(--blue),var(--cyan));box-shadow:0 0 10px rgba(77,240,255,.6);transition:width .12s linear}
+.hp .fill.low{background:linear-gradient(90deg,#c01a52,var(--warn));box-shadow:0 0 10px rgba(255,77,141,.7)}
+.hp .ticks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 17px,var(--bg) 17px 19px)}
+.bl{position:absolute;left:16px;bottom:16px;display:grid;gap:8px;font-size:13px}
+.wrow{display:flex;align-items:center;gap:10px}
+.wrow b{display:inline-grid;place-items:center;width:20px;height:20px;border:1px solid var(--line);font-weight:400;font-size:12px}
+.pips{display:flex;gap:3px}
+.pips i{width:8px;height:14px;border:1px solid var(--line);display:block}
+.pips i.on{background:var(--cyan);box-shadow:0 0 6px rgba(77,240,255,.8)}
+.br{position:absolute;right:16px;bottom:16px;text-align:right;display:grid;gap:6px;font-size:12px}
+#lock{font-size:16px;letter-spacing:.2em;color:var(--dim);text-shadow:none}
+#lock.on{color:var(--amber);text-shadow:0 0 10px rgba(255,194,77,.8);animation:blink .5s steps(2) infinite}
+@keyframes blink{50%{opacity:.45}}
+#st{color:var(--dim);text-shadow:none;font-size:11px}
+#pausebtn{position:absolute;top:16px;right:16px;pointer-events:auto;font:inherit;font-size:12px;letter-spacing:.16em;color:var(--cyan);background:transparent;border:1px solid var(--line);padding:6px 10px;cursor:pointer}
+#pausebtn:hover{background:rgba(77,240,255,.12)}
+#pausebtn:focus-visible,#go:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+#ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(1,3,8,.74);overflow:auto}
+#ov[hidden]{display:none}
+.panel{width:min(580px,100%);margin:auto;border:1px solid var(--line);background:var(--panel);padding:24px;box-shadow:0 0 48px rgba(61,123,255,.2) inset}
+.kicker{font-family:var(--font-m);font-size:12px;letter-spacing:.22em;color:var(--dim)}
+.panel h1{margin:6px 0 12px;font-size:clamp(28px,7vw,40px);line-height:1.1;font-weight:700;letter-spacing:.06em;color:var(--cyan);text-shadow:0 0 18px rgba(77,240,255,.55);text-wrap:balance}
+.sub{margin:0 0 18px;color:var(--fg);font-size:14px;line-height:1.6}
+.keys{display:grid;grid-template-columns:max-content 1fr;gap:8px 16px;margin:0 0 20px;font-size:13px;line-height:1.5}
+.keys dt{font-family:var(--font-m);color:var(--cyan);white-space:nowrap}
+.keys dd{margin:0;color:var(--fg);min-width:0}
+.res{font-family:var(--font-m);font-size:15px;margin:0 0 18px;color:var(--amber)}
+#go{font:inherit;font-weight:700;font-size:15px;letter-spacing:.2em;color:var(--bg);background:var(--cyan);border:0;padding:12px 22px;cursor:pointer;box-shadow:0 0 18px rgba(77,240,255,.5)}
+#go:hover{background:#9ff7ff}
+.note{margin:16px 0 0;color:var(--dim);font-size:12px;line-height:1.6}
+@media (max-width:640px){
+  .hp{top:68px;left:16px;right:16px;transform:none;width:auto}
+  .val{font-size:20px}
+  .br{bottom:68px}
+  #pausebtn{top:12px}
+}
+@media (prefers-reduced-motion:reduce){#lock.on{animation:none}}
+</style>
+
+<div id="stage">
+  <canvas id="gl" aria-label="ゲーム画面"></canvas>
+  <canvas id="glow1"></canvas>
+  <canvas id="glow2"></canvas>
+
+  <div class="hud" aria-live="off">
+    <div class="tl">
+      <div><div class="lbl">SCORE</div><div class="val" id="score">000000</div></div>
+      <div><div class="lbl">DIST</div><div class="val" id="dist">0000<span style="font-size:12px"> m</span></div></div>
+    </div>
+    <div class="hp">
+      <div class="lbl">ARMOR</div>
+      <div class="bar"><div class="fill" id="hpfill"></div><div class="ticks"></div></div>
+    </div>
+    <button id="pausebtn" type="button">PAUSE [P]</button>
+    <div class="bl">
+      <div class="wrow"><b>Z</b><span>VULCAN</span><span class="lbl">連射・ロック時は追尾</span></div>
+      <div class="wrow"><b>X</b><span>MISSILE</span><span class="pips" id="pips"></span></div>
+    </div>
+    <div class="br">
+      <div id="lock">NO LOCK</div>
+      <div id="st">決定性テスト 実行中</div>
+    </div>
+  </div>
+
+  <div id="ov">
+    <div class="panel">
+      <div class="kicker">WIRE STRIKER ・ PROTOTYPE 0.1</div>
+      <h1 id="ovt">ワイヤー・ストライカー</h1>
+      <p class="sub" id="ovs">全オブジェクトがノーテクスチャのワイヤーフレーム。奥から迫る敵をロックオンして撃ち落とし、障害物と弾を避けて進みます。</p>
+      <p class="res" id="ovr" hidden></p>
+      <dl class="keys">
+        <dt>W A S D / 矢印</dt><dd>移動と上昇・下降(両方を合算)</dd>
+        <dt>Space</dt><dd>ジャンプ。A と → のように、2本を左右へ開いても出ます</dd>
+        <dt>Q / E</dt><dd>ダッシュ。入力中の方向へ進み、終わりに隙ができます。方向入力がなければ Q は左、E は右</dd>
+        <dt>Z</dt><dd>バルカン。押し続けて連射。ロック中は追尾します</dd>
+        <dt>X</dt><dd>ミサイル3発。弾数制で、時間とともに回復します</dd>
+        <dt>P / Esc</dt><dd>一時停止</dd>
+        <dt>ゲームパッド</dt><dd>左右スティックで移動、L1 / R1 でダッシュ、L2 / R2 で武器、A でジャンプ</dd>
+      </dl>
+      <button id="go" type="button">START [Enter]</button>
+      <p class="note">タッチ操作は未対応です。機体・敵・背景は仮のデザインで、操作の数値はすべて設計値です。</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   設計値(原作の数値ではない)。仕様パラメータ表の「設計値」に対応
+   ============================================================ */
+const C={
+  PZ:12, SCROLL:0.55, XB:9.5, YMAX:8,
+  ACC:0.05, VMAX:0.45,
+  THRUST:0.03, GRAV:0.018, VYMAX:0.42, JUMP:0.42,
+  DASH_F:11, DASH_V:0.95, LAG_F:12,
+  HP:100, INV:60,
+  A_CD:5,  A_SPD:2.0, A_LIFE:80,  A_DMG:1, A_HOME:0.10,
+  B_CD:28, B_SPD:1.3, B_LIFE:110, B_DMG:5, B_HOME:0.18, B_MAX:12, B_REGEN:80,
+  LOCK_Z:120, LOCK_CONE:0.45,
+  SPAWN_Z:140,
+  MUZ:[1.2,2.4,4.4]
+};
+const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
+
+/* ============================================================
+   シミュレーション層(描画に依存しない。後でRust+WASMへ移す対象)
+   ============================================================ */
+function rnd(s){
+  s.seed=(s.seed+0x6D2B79F5)|0;
+  let t=s.seed;
+  t=Math.imul(t^(t>>>15),t|1);
+  t^=t+Math.imul(t^(t>>>7),t|61);
+  return((t^(t>>>14))>>>0)/4294967296;
+}
+function newState(seed){
+  return{
+    seed:seed|0,t:0,scroll:0,dist:0,score:0,kills:0,nextId:1,over:false,overT:0,
+    p:{x:0,y:0,vx:0,vy:0,hp:C.HP,inv:0,dash:0,dx:0,dy:0,lag:0,cdA:0,cdB:0,ammoB:C.B_MAX,regen:0,lock:0,yaw:0,prevJump:false,prevD:false},
+    en:[],bl:[],eb:[],sc:[],fx:[],
+    spawnT:50,scT:10,heavyT:1000,shake:0
+  };
+}
+function findEn(s,id){for(const e of s.en){if(e.id===id&&e.hp>0)return e;}return null;}
+
+function explode(s,x,y,z,n,col,big){
+  for(let i=0;i<n;i++){
+    const a=rnd(s)*6.2832,b=(rnd(s)-0.5)*2.4;
+    const sp=0.15+rnd(s)*(big?0.7:0.4);
+    s.fx.push({k:'s',x,y,z,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp*0.8+(rnd(s)-0.3)*0.15,vz:b*sp*0.6,life:22+Math.floor(rnd(s)*16),max:38,c:col});
+  }
+  s.fx.push({k:'r',x,y,z,r:0.4,life:16,max:16,c:col,big:big?1:0});
+  while(s.fx.length>420)s.fx.shift();
+}
+function updateFx(s){
+  for(let i=s.fx.length-1;i>=0;i--){
+    const f=s.fx[i];
+    if(f.k==='s'){f.x+=f.vx;f.y+=f.vy;f.z+=f.vz;f.vx*=0.96;f.vy=f.vy*0.96-0.004;f.vz*=0.96;}
+    else{f.r+=f.big?0.55:0.35;}
+    if(--f.life<=0)s.fx.splice(i,1);
+  }
+}
+function hurt(s,n){
+  const p=s.p;
+  if(p.inv>0||s.over)return;
+  p.hp-=n;p.inv=C.INV;s.shake=14;
+  if(p.hp<=0){
+    p.hp=0;s.over=true;
+    explode(s,p.x,p.y+2,C.PZ,40,0,true);
+    explode(s,p.x,p.y+2,C.PZ,20,4,true);
+  }
+}
+function eFire(s,e,spd){
+  const p=s.p;
+  let dx=p.x-e.x,dy=p.y+2-e.y,dz=C.PZ-e.z;
+  const l=Math.hypot(dx,dy,dz)||1;
+  s.eb.push({x:e.x,y:e.y,z:e.z-1.5,vx:dx/l*spd,vy:dy/l*spd,vz:dz/l*spd,life:260});
+}
+function fire(s,kind,i){
+  const p=s.p;
+  const cyw=Math.cos(p.yaw),syw=Math.sin(p.yaw);
+  const mx=p.x+C.MUZ[0]*cyw+C.MUZ[2]*syw,my=p.y+C.MUZ[1],mz=C.PZ-C.MUZ[0]*syw+C.MUZ[2]*cyw;
+  let vx=0,vy=0,vz=1;
+  if(p.lock){const e=findEn(s,p.lock);if(e){vx=e.x-mx;vy=e.y-my;vz=e.z-mz;}}
+  let l=Math.hypot(vx,vy,vz)||1;vx/=l;vy/=l;vz/=l;
+  let spd,life,dmg,home;
+  if(kind==='A'){
+    spd=C.A_SPD;life=C.A_LIFE;dmg=C.A_DMG;home=C.A_HOME;
+    vx+=(rnd(s)-0.5)*0.03;vy+=(rnd(s)-0.5)*0.03;
+  }else{
+    spd=C.B_SPD;life=C.B_LIFE;dmg=C.B_DMG;home=C.B_HOME;
+    vx+=(i-1)*0.32;vy+=0.12;
+  }
+  l=Math.hypot(vx,vy,vz)||1;vx/=l;vy/=l;vz/=l;
+  s.bl.push({k:kind,x:mx,y:my,z:mz,vx:vx*spd,vy:vy*spd,vz:vz*spd,spd,life,dmg,home,tgt:p.lock});
+}
+function killEnemy(s,e,byPlayer){
+  e.hp=0;
+  if(byPlayer){s.score+=e.score;s.kills++;}
+  explode(s,e.x,e.y,e.z,e.type==='heavy'?36:16,e.col,e.type==='heavy');
+}
+function spawnEnemy(s){
+  const heavyAlive=s.en.some(e=>e.type==='heavy'&&e.hp>0);
+  const id=s.nextId++;
+  if(s.heavyT<=0&&!heavyAlive&&s.t>600){
+    s.heavyT=1500;
+    s.en.push({id,type:'heavy',x:0,y:3.2,z:C.SPAWN_Z,hp:14,r:3.0,ph:rnd(s)*6,fireT:60,burst:0,flash:0,score:800,col:3});
+    return;
+  }
+  const r=rnd(s);
+  if(r<0.62){
+    const bx=(rnd(s)-0.5)*14,by=1.5+rnd(s)*5.5;
+    s.en.push({id,type:'dart',x:bx,bx,y:by,by,z:C.SPAWN_Z,hp:2,r:1.6,ph:rnd(s)*6,fireT:20+Math.floor(rnd(s)*50),flash:0,score:100,col:1});
+  }else{
+    s.en.push({id,type:'turret',x:(rnd(s)-0.5)*22,y:0.9,z:C.SPAWN_Z,hp:3,r:1.7,ph:0,fireT:40+Math.floor(rnd(s)*60),flash:0,score:150,col:2});
+  }
+}
+
+function step(s,inp){
+  s.t++;
+  if(s.over){s.overT++;updateFx(s);if(s.shake>0)s.shake--;return;}
+  const p=s.p;
+  s.scroll=(s.scroll+C.SCROLL)%4;
+  s.dist+=C.SCROLL;
+  if(s.shake>0)s.shake--;
+  if(p.inv>0)p.inv--;
+  if(p.cdA>0)p.cdA--;
+  if(p.cdB>0)p.cdB--;
+
+  /* ---- 入力解釈(ハリアー型:2本のスティックの合算で移動) ---- */
+  const mx=clamp(inp.lx+inp.rx,-1,1),my=clamp(inp.ly+inp.ry,-1,1);
+  const jumpIn=!!inp.jump||(inp.lx<-0.6&&inp.rx>0.6);
+  const dAny=!!(inp.dL||inp.dR);
+  const dashPress=dAny&&!p.prevD;
+  p.prevD=dAny;
+
+  if(dashPress&&p.dash===0&&p.lag===0){
+    let dx=mx,dy=my;
+    if(Math.abs(dx)+Math.abs(dy)<0.3){dx=inp.dL?-1:1;dy=0;}
+    const l=Math.hypot(dx,dy)||1;
+    p.dx=dx/l;p.dy=dy/l;p.dash=C.DASH_F;
+  }
+
+  /* ---- 移動 ---- */
+  if(p.dash>0){
+    p.x+=p.dx*C.DASH_V;p.y+=p.dy*0.45;p.vy=0;p.vx=p.dx*C.DASH_V*0.5;
+    p.dash--;if(p.dash===0)p.lag=C.LAG_F;
+  }else if(p.lag>0){
+    p.lag--;p.vx*=0.7;p.x+=p.vx;
+    p.vy=clamp(p.vy-C.GRAV,-0.5,C.VYMAX);p.y+=p.vy;
+  }else{
+    p.vx+=clamp(mx*C.VMAX-p.vx,-C.ACC,C.ACC);p.x+=p.vx;
+    p.vy+=(my>0?my*C.THRUST:my*0.008)-C.GRAV;
+    if(jumpIn&&!p.prevJump&&p.y<0.3)p.vy=C.JUMP;
+    p.vy=clamp(p.vy,-0.5,C.VYMAX);p.y+=p.vy;
+  }
+  p.prevJump=jumpIn;
+  if(p.y<=0){p.y=0;if(p.vy<0)p.vy=0;}
+  if(p.y>C.YMAX){p.y=C.YMAX;if(p.vy>0)p.vy=0;}
+  p.x=clamp(p.x,-C.XB,C.XB);
+
+  /* ---- ロックオン ---- */
+  let best=0,bs=1e9,bestE=null;
+  const ax=p.x,ay=p.y+2;
+  for(const e of s.en){
+    if(e.hp<=0)continue;
+    const dz=e.z-C.PZ;
+    if(dz<6||dz>C.LOCK_Z)continue;
+    const ang=Math.hypot(e.x-ax,e.y-ay)/dz;
+    if(ang>C.LOCK_CONE)continue;
+    const sc=ang*100+dz*0.3;
+    if(sc<bs){bs=sc;best=e.id;bestE=e;}
+  }
+  p.lock=best;
+  const wantYaw=bestE?clamp(Math.atan2(bestE.x-p.x,bestE.z-C.PZ)*0.6,-0.5,0.5):0;
+  p.yaw+=(wantYaw-p.yaw)*0.12;
+
+  /* ---- 射撃 ---- */
+  if(inp.tA&&p.cdA===0){p.cdA=C.A_CD;fire(s,'A',0);}
+  if(inp.tB&&p.cdB===0&&p.ammoB>0){
+    p.cdB=C.B_CD;
+    const n=Math.min(3,p.ammoB);
+    for(let i=0;i<n;i++)fire(s,'B',i);
+    p.ammoB-=n;
+  }
+  if(p.ammoB<C.B_MAX){if(++p.regen>=C.B_REGEN){p.regen=0;p.ammoB++;}}else p.regen=0;
+
+  /* ---- スポーン ---- */
+  s.heavyT--;
+  if(--s.spawnT<=0){
+    s.spawnT=Math.max(26,72-Math.floor(s.t/45))+Math.floor(rnd(s)*30);
+    spawnEnemy(s);
+  }
+  if(--s.scT<=0){
+    s.scT=16+Math.floor(rnd(s)*26);
+    const inLane=rnd(s)<0.4;
+    const x=inLane?(rnd(s)-0.5)*22:(rnd(s)<0.5?-1:1)*(12+rnd(s)*16);
+    const pil=rnd(s)<0.55;
+    s.sc.push(pil?{t:'pil',x,z:C.SPAWN_Z+10,h:5,r:0.9}:{t:'pyr',x,z:C.SPAWN_Z+10,h:2,r:1.6});
+  }
+
+  /* ---- 敵 ---- */
+  for(const e of s.en){
+    if(e.hp<=0)continue;
+    if(e.flash>0)e.flash--;
+    if(e.type==='dart'){
+      e.z-=0.5;
+      e.x=e.bx+Math.sin(s.t*0.04+e.ph)*2.5;
+      e.y=e.by+Math.sin(s.t*0.07+e.ph)*0.8;
+      if(--e.fireT<=0&&e.z>35&&e.z<110){eFire(s,e,0.8);e.fireT=99999;}
+    }else if(e.type==='turret'){
+      e.z-=C.SCROLL;
+      if(--e.fireT<=0&&e.z>30&&e.z<100){eFire(s,e,0.85);e.fireT=110;}
+    }else{
+      if(e.z>55)e.z-=0.35;
+      else e.x=Math.sin(s.t*0.02+e.ph)*7;
+      if(--e.fireT<=0){e.burst=3;e.fireT=130;}
+      if(e.burst>0&&s.t%8===0){eFire(s,e,0.9);e.burst--;}
+    }
+    const dx=e.x-p.x,dy=e.y-(p.y+2),dz=e.z-C.PZ;
+    if(e.type!=='heavy'&&Math.hypot(dx,dy,dz)<e.r+1.3){killEnemy(s,e,false);hurt(s,18);}
+  }
+
+  /* ---- プレイヤー弾 ---- */
+  for(let i=s.bl.length-1;i>=0;i--){
+    const b=s.bl[i];
+    if(b.tgt){
+      const e=findEn(s,b.tgt);
+      if(e){
+        let dx=e.x-b.x,dy=e.y-b.y,dz=e.z-b.z;
+        const l=Math.hypot(dx,dy,dz)||1;dx/=l;dy/=l;dz/=l;
+        let vx=b.vx/b.spd,vy=b.vy/b.spd,vz=b.vz/b.spd;
+        vx+=(dx-vx)*b.home;vy+=(dy-vy)*b.home;vz+=(dz-vz)*b.home;
+        const m=Math.hypot(vx,vy,vz)||1;
+        b.vx=vx/m*b.spd;b.vy=vy/m*b.spd;b.vz=vz/m*b.spd;
+      }else b.tgt=0;
+    }
+    b.x+=b.vx;b.y+=b.vy;b.z+=b.vz;b.life--;
+    let dead=b.life<=0||b.z>200||b.y<-1;
+    if(!dead){
+      for(const e of s.en){
+        if(e.hp<=0)continue;
+        const dx=e.x-b.x,dy=e.y-b.y,dz=e.z-b.z,rr=e.r+0.5;
+        if(dx*dx+dy*dy+dz*dz<rr*rr){
+          e.hp-=b.dmg;e.flash=4;
+          explode(s,b.x,b.y,b.z,b.k==='B'?8:3,4,false);
+          if(e.hp<=0)killEnemy(s,e,true);
+          dead=true;break;
+        }
+      }
+    }
+    if(dead)s.bl.splice(i,1);
+  }
+  for(let i=s.en.length-1;i>=0;i--){
+    const e=s.en[i];
+    if(e.hp<=0||e.z<1.5)s.en.splice(i,1);
+  }
+
+  /* ---- 敵弾 ---- */
+  for(let i=s.eb.length-1;i>=0;i--){
+    const b=s.eb[i];
+    b.x+=b.vx;b.y+=b.vy;b.z+=b.vz;b.life--;
+    const dx=b.x-p.x,dy=b.y-(p.y+2),dz=b.z-C.PZ;
+    let dead=b.life<=0||b.z<0;
+    if(!dead&&dx*dx+dy*dy+dz*dz<2.6){hurt(s,10);explode(s,b.x,b.y,b.z,6,1,false);dead=true;}
+    if(dead)s.eb.splice(i,1);
+  }
+
+  /* ---- 背景の障害物 ---- */
+  for(let i=s.sc.length-1;i>=0;i--){
+    const o=s.sc[i];
+    o.z-=C.SCROLL;
+    if(Math.abs(o.z-C.PZ)<1.3&&Math.abs(o.x-p.x)<o.r+0.9&&p.y<o.h){
+      hurt(s,12);explode(s,o.x,o.h*0.5,o.z,10,0,false);o.z=-9;
+    }
+    if(o.z<1)s.sc.splice(i,1);
+  }
+  updateFx(s);
+}
+
+function hash(s){
+  const str=JSON.stringify(s);
+  let h=2166136261>>>0;
+  for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  return h>>>0;
+}
+function scripted(f){
+  const a=f*0.031;
+  return{lx:Math.sin(a),ly:Math.cos(a*1.3),rx:Math.sin(a*0.7),ry:Math.sin(a*0.4),
+    dL:f%97>=10&&f%97<14,dR:f%131>=40&&f%131<44,tA:(f%60)<40,tB:f%200===150,jump:f%173===5};
+}
+function allFinite(o){
+  if(typeof o==='number')return Number.isFinite(o);
+  if(o&&typeof o==='object'){for(const k in o){if(!allFinite(o[k]))return false;}}
+  return true;
+}
+function selfTest(){
+  const hs=[];let fin=true,kills=0;
+  for(let k=0;k<2;k++){
+    const s=newState(20261006);
+    for(let f=0;f<3600;f++){
+      step(s,scripted(f));
+      if(s.p.hp<30)s.p.hp=C.HP;
+    }
+    hs.push(hash(s));fin=fin&&allFinite(s);kills=s.kills;
+  }
+  return{ok:hs[0]===hs[1]&&fin&&kills>0,hash:hs[0],frames:3600,kills};
+}
+
+/* ============================================================
+   行列
+   ============================================================ */
+const M={
+  id:()=>[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],
+  mul(a,b){
+    const o=new Array(16);
+    for(let c=0;c<4;c++)for(let r=0;r<4;r++){
+      let s=0;for(let k=0;k<4;k++)s+=a[k*4+r]*b[c*4+k];
+      o[c*4+r]=s;
+    }
+    return o;
+  },
+  T(x,y,z){const m=M.id();m[12]=x;m[13]=y;m[14]=z;return m;},
+  S(x,y,z){const m=M.id();m[0]=x;m[5]=y;m[10]=z;return m;},
+  Rx(a){const c=Math.cos(a),s=Math.sin(a);return[1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1];},
+  Ry(a){const c=Math.cos(a),s=Math.sin(a);return[c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1];},
+  Rz(a){const c=Math.cos(a),s=Math.sin(a);return[c,s,0,0,-s,c,0,0,0,0,1,0,0,0,0,1];},
+  persp(ty,asp,n,f,sy){
+    const tx=ty*asp;
+    return[1/tx,0,0,0,0,1/ty,0,0,0,sy,(f+n)/(f-n),1,0,0,-2*f*n/(f-n),0];
+  }
+};
+function rotv(R,v){
+  return[R[0]*v[0]+R[4]*v[1]+R[8]*v[2],R[1]*v[0]+R[5]*v[1]+R[9]*v[2],R[2]*v[0]+R[6]*v[1]+R[10]*v[2]];
+}
+
+/* ============================================================
+   WebGL2:太線ワイヤー(線分を画面空間で太らせたクアッドとして描く)
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const cv=$('gl'),g1=$('glow1'),g2=$('glow2');
+const x1=g1.getContext('2d'),x2=g2.getContext('2d');
+const gl=cv.getContext('webgl2',{antialias:false,alpha:false});
+let ready=!!gl,glLost=false;
+
+const VS=`#version 300 es
+precision highp float;
+layout(location=0) in vec2 aCorner;
+layout(location=1) in vec3 aPa;
+layout(location=2) in vec3 aCa;
+layout(location=3) in vec3 aPb;
+layout(location=4) in vec3 aCb;
+uniform mat4 uMVP;
+uniform vec2 uRes;
+uniform float uW;
+uniform vec2 uFog;
+uniform float uFogOn;
+uniform vec4 uTint;
+out vec3 vC;
+out float vSide;
+void main(){
+  vec4 A=uMVP*vec4(aPa,1.0);
+  vec4 B=uMVP*vec4(aPb,1.0);
+  if(A.w<0.15||B.w<0.15){gl_Position=vec4(2.0,2.0,2.0,1.0);vC=vec3(0.0);vSide=0.0;return;}
+  float t=aCorner.x;
+  vec2 sa=A.xy/A.w*uRes*0.5;
+  vec2 sb=B.xy/B.w*uRes*0.5;
+  vec2 d=sb-sa;
+  float len=length(d);
+  d=len>0.0001?d/len:vec2(1.0,0.0);
+  vec2 n=vec2(-d.y,d.x);
+  vec4 P=mix(A,B,t);
+  vec2 off=(n*aCorner.y+d*(t*2.0-1.0))*uW/uRes;
+  gl_Position=vec4(P.xy+off*P.w,P.z,P.w);
+  float w=mix(A.w,B.w,t);
+  float f=uFogOn>0.5?clamp(1.0-(w-uFog.x)/(uFog.y-uFog.x),0.0,1.0):1.0;
+  vC=mix(aCa,aCb,t)*f*uTint.rgb*uTint.a;
+  vSide=aCorner.y;
+}`;
+const FS=`#version 300 es
+precision mediump float;
+in vec3 vC;
+in float vSide;
+out vec4 o;
+void main(){
+  float a=1.0-smoothstep(0.45,1.0,abs(vSide));
+  o=vec4(vC*a,1.0);
+}`;
+
+let prog,U={},cornerBuf;
+function mkShader(type,src){
+  const sh=gl.createShader(type);gl.shaderSource(sh,src);gl.compileShader(sh);
+  if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(sh));
+  return sh;
+}
+function initGL(){
+  prog=gl.createProgram();
+  gl.attachShader(prog,mkShader(gl.VERTEX_SHADER,VS));
+  gl.attachShader(prog,mkShader(gl.FRAGMENT_SHADER,FS));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(prog));
+  for(const n of['uMVP','uRes','uW','uFog','uFogOn','uTint'])U[n]=gl.getUniformLocation(prog,n);
+  cornerBuf=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,cornerBuf);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([0,-1,0,1,1,-1,1,1]),gl.STATIC_DRAW);
+  gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE);gl.disable(gl.DEPTH_TEST);
+}
+function makeMesh(data,dynamic){
+  const vao=gl.createVertexArray();gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER,cornerBuf);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+  if(data)gl.bufferData(gl.ARRAY_BUFFER,data,dynamic?gl.DYNAMIC_DRAW:gl.STATIC_DRAW);
+  for(let k=0;k<4;k++){
+    gl.enableVertexAttribArray(1+k);
+    gl.vertexAttribPointer(1+k,3,gl.FLOAT,false,48,k*12);
+    gl.vertexAttribDivisor(1+k,1);
+  }
+  gl.bindVertexArray(null);
+  return{vao,buf,n:data?data.length/12:0};
+}
+
+/* ---- ジオメトリ生成 ---- */
+class Geo{
+  constructor(cf){this.cf=cf;this.a=[];}
+  line(p,q){
+    const c1=this.cf(p[1]),c2=this.cf(q[1]);
+    this.a.push(p[0],p[1],p[2],c1[0],c1[1],c1[2],q[0],q[1],q[2],c2[0],c2[1],c2[2]);
+  }
+  build(){return makeMesh(new Float32Array(this.a));}
+}
+function grad(lo,hi,y0,y1){
+  return y=>{const t=clamp((y-y0)/(y1-y0),0,1);return[lo[0]+(hi[0]-lo[0])*t,lo[1]+(hi[1]-lo[1])*t,lo[2]+(hi[2]-lo[2])*t];};
+}
+function box(g,cx,cy,cz,sx,sy,sz,o){
+  o=o||{};
+  const tt=o.tt===undefined?1:o.tt,tb=o.tb===undefined?1:o.tb;
+  const R=M.mul(M.Ry(o.ry||0),M.mul(M.Rx(o.rx||0),M.Rz(o.rz||0)));
+  const v=[];
+  for(let iy=0;iy<2;iy++){
+    const k=iy?tt:tb,y=(iy?0.5:-0.5)*sy;
+    for(let ix=0;ix<2;ix++)for(let iz=0;iz<2;iz++){
+      const p=rotv(R,[(ix?0.5:-0.5)*sx*k,y,(iz?0.5:-0.5)*sz*k]);
+      v.push([p[0]+cx,p[1]+cy,p[2]+cz]);
+    }
+  }
+  const ring=[[0,0],[1,0],[1,1],[0,1]];
+  for(let i=0;i<4;i++){
+    const a=ring[i],b=ring[(i+1)%4];
+    for(let iy=0;iy<2;iy++)g.line(v[iy*4+a[0]*2+a[1]],v[iy*4+b[0]*2+b[1]]);
+    g.line(v[a[0]*2+a[1]],v[4+a[0]*2+a[1]]);
+  }
+}
+function ngon(g,cx,cy,cz,r,h,n,tt,tb,o){
+  o=o||{};tt=tt===undefined?1:tt;tb=tb===undefined?1:tb;
+  const R=M.mul(M.Ry(o.ry||0),M.mul(M.Rx(o.rx||0),M.Rz(o.rz||0)));
+  const bot=[],top=[];
+  for(let i=0;i<n;i++){
+    const a=i/n*Math.PI*2+(o.off||0),c=Math.cos(a),s=Math.sin(a);
+    const pb=rotv(R,[c*r*tb,-h/2,s*r*tb]),pt=rotv(R,[c*r*tt,h/2,s*r*tt]);
+    bot.push([pb[0]+cx,pb[1]+cy,pb[2]+cz]);top.push([pt[0]+cx,pt[1]+cy,pt[2]+cz]);
+  }
+  for(let i=0;i<n;i++){g.line(bot[i],bot[(i+1)%n]);g.line(top[i],top[(i+1)%n]);g.line(bot[i],top[i]);}
+}
+function pyramid(g,cx,cy,cz,r,h,n,off){
+  const ring=[];
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2+(off||0);ring.push([cx+Math.cos(a)*r,cy,cz+Math.sin(a)*r]);}
+  const apex=[cx,cy+h,cz];
+  for(let i=0;i<n;i++){g.line(ring[i],ring[(i+1)%n]);g.line(ring[i],apex);}
+}
+
+/* ---- 自機/重量級敵 共通の機体(ローポリ・ノーテクスチャ) ---- */
+function buildRobot(cf){
+  const T=new Geo(cf),TH=[new Geo(cf),new Geo(cf)],SH=[new Geo(cf),new Geo(cf)];
+  /* 胴体 */
+  box(T,0,3.05,0,1.55,1.0,0.95,{tt:0.82});
+  box(T,0,3.1,0.52,0.95,0.6,0.18,{tt:0.9});
+  box(T,0,3.62,0.08,0.9,0.3,0.7,{tb:1.1,tt:0.7});
+  box(T,0,2.4,0,0.95,0.45,0.65,{tt:1.15,tb:0.8});
+  box(T,0,1.95,0,1.05,0.4,0.72);
+  box(T,0,1.7,0.42,0.5,0.5,0.15,{tb:0.8});
+  box(T,0,1.75,-0.4,0.6,0.45,0.15,{tb:0.8});
+  /* 頭部とアンテナ */
+  ngon(T,0,3.98,0.05,0.36,0.46,6,0.9,1.0);
+  box(T,0,3.98,0.36,0.5,0.14,0.1);
+  box(T,0.42,3.98,0,0.14,0.3,0.3);box(T,-0.42,3.98,0,0.14,0.3,0.3);
+  T.line([0.15,4.2,-0.02],[0.5,4.98,-0.08]);
+  T.line([-0.15,4.2,-0.02],[-0.5,4.98,-0.08]);
+  /* バックパック */
+  box(T,0.8,3.75,-0.5,0.28,0.95,0.3);
+  box(T,-0.7,3.4,-0.5,0.5,0.5,0.4);
+  /* 肩・サイドスカート */
+  for(const s of[-1,1]){
+    box(T,s*1.2,3.4,0,0.9,0.7,1.0,{tt:0.7,rz:-s*0.22});
+    box(T,s*1.25,3.82,0,0.6,0.35,0.7,{tt:0.6,rz:-s*0.3});
+    box(T,s*1.35,2.75,0,0.4,0.85,0.42,{tb:0.9});
+    box(T,s*0.7,1.75,0.05,0.35,0.55,0.7,{rz:-s*0.18});
+  }
+  /* 左腕(下ろしている) */
+  box(T,-1.4,2.0,0.2,0.4,0.85,0.45,{rx:-0.25});
+  box(T,-1.4,1.5,0.4,0.38,0.34,0.4);
+  /* 右腕とライフル */
+  box(T,1.3,2.35,0.7,0.38,0.38,0.9);
+  box(T,1.25,2.3,1.25,0.4,0.4,0.4);
+  box(T,1.2,2.4,2.6,0.2,0.24,3.0);
+  box(T,1.2,2.35,1.4,0.34,0.44,0.9,{tt:0.8});
+  box(T,1.2,2.72,1.6,0.18,0.18,0.55);
+  box(T,1.2,2.4,4.2,0.28,0.28,0.2);
+  /* 脚 */
+  for(let i=0;i<2;i++){
+    const s=i?1:-1,th=TH[i],sh=SH[i];
+    box(th,s*0.42,1.45,0,0.52,0.95,0.55,{tb:0.85});
+    box(th,s*0.42,1.0,0.3,0.46,0.34,0.3);
+    box(sh,s*0.42,0.6,-0.05,0.46,0.95,0.58,{tb:0.8});
+    box(sh,s*0.42,0.65,-0.42,0.4,0.7,0.25);
+    box(sh,s*0.42,0.35,-0.2,0.5,0.3,0.4);
+    box(sh,s*0.42,0.14,0.22,0.58,0.26,1.1,{tb:0.9});
+    box(sh,s*0.42,0.18,0.82,0.5,0.2,0.4,{tt:0.7});
+  }
+  return{torso:T.build(),thigh:[TH[0].build(),TH[1].build()],shin:[SH[0].build(),SH[1].build()]};
+}
+function buildDart(cf){
+  const g=new Geo(cf);
+  const F=[0,0,-1.8],B=[0,0,1.6],Tp=[0,0.7,0],U=[0,-0.5,0],L=[-0.8,0,0.2],R=[0.8,0,0.2];
+  for(const e of[[F,Tp],[F,U],[F,L],[F,R],[B,Tp],[B,U],[B,L],[B,R],[Tp,L],[Tp,R],[U,L],[U,R]])g.line(e[0],e[1]);
+  for(const s of[-1,1]){
+    const tip=[s*2.8,0.15,1.1];
+    g.line([s*0.8,0,0.2],tip);g.line(tip,[s*0.9,0,1.4]);g.line(tip,[s*0.9,0,-0.5]);
+    g.line([s*0.9,0,-0.5],[s*0.8,0,0.2]);
+  }
+  g.line(B,[0,1.3,2.0]);g.line([0,1.3,2.0],[0,0.7,0]);
+  return g.build();
+}
+function buildTurret(cf){
+  const g=new Geo(cf);
+  ngon(g,0,-0.55,0,1.5,0.7,6,0.85,1.0);
+  pyramid(g,0,-0.2,0,1.25,1.1,6,0);
+  box(g,0,0.45,-1.1,0.28,0.28,1.8);
+  box(g,0,0.45,-2.05,0.4,0.4,0.2);
+  g.line([-1.5,-0.9,0],[-2.0,-0.9,0.8]);g.line([1.5,-0.9,0],[2.0,-0.9,0.8]);
+  return g.build();
+}
+function buildPillar(cf){
+  const g=new Geo(cf);
+  ngon(g,0,2.5,0,0.9,5,6,0.85,1.0);
+  for(const y of[1.7,3.4]){
+    const ring=[];
+    for(let i=0;i<6;i++){const a=i/6*Math.PI*2,k=1-y/5*0.15;ring.push([Math.cos(a)*0.9*k,y,Math.sin(a)*0.9*k]);}
+    for(let i=0;i<6;i++)g.line(ring[i],ring[(i+1)%6]);
+  }
+  return g.build();
+}
+function buildRock(cf){
+  const g=new Geo(cf);
+  pyramid(g,0,0,0,1.7,2,4,Math.PI/4);
+  g.line([-1.2,0,-1.2],[1.2,0,1.2]);g.line([1.2,0,-1.2],[-1.2,0,1.2]);
+  return g.build();
+}
+function buildMountains(){
+  const g=new Geo(()=>[0.10,0.26,0.55]);
+  let sd=7;const r=()=>{sd=(sd*1103515245+12345)&0x7fffffff;return sd/0x7fffffff;};
+  const z=190;let prev=null;
+  for(let x=-260;x<=260;x+=11){
+    const h=6+Math.pow(r(),1.6)*30;
+    const pk=[x,h,z];
+    if(prev){g.line(prev,pk);}
+    g.line([x,0,z],pk);
+    prev=pk;
+  }
+  g.line([-300,0,z],[300,0,z]);
+  return g.build();
+}
+
+/* ---- 描画ヘルパ ---- */
+const VIEW={dpr:1,VP:M.id(),W:2,H:2};
+const mvpBuf=new Float32Array(16);
+function setU(mvp,width,tint,fogOn,fogEnd){
+  mvpBuf.set(mvp);
+  gl.uniformMatrix4fv(U.uMVP,false,mvpBuf);
+  gl.uniform2f(U.uRes,VIEW.W,VIEW.H);
+  gl.uniform1f(U.uW,width*VIEW.dpr);
+  gl.uniform2f(U.uFog,30,fogEnd||165);
+  gl.uniform1f(U.uFogOn,fogOn?1:0);
+  gl.uniform4f(U.uTint,tint[0],tint[1],tint[2],tint[3]);
+}
+function drawMesh(mesh,model,width,tint,fogOn,fogEnd){
+  if(!mesh||!mesh.n)return;
+  setU(M.mul(VIEW.VP,model),width,tint,fogOn,fogEnd);
+  gl.bindVertexArray(mesh.vao);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,mesh.n);
+}
+const MAXSEG=7000;
+const dynArr=new Float32Array(MAXSEG*12);
+let dn=0,dyn=null;
+function dl(ax,ay,az,bx,by,bz,c,k){
+  if(dn>=MAXSEG)return;
+  const o=dn*12;k=k===undefined?1:k;
+  dynArr[o]=ax;dynArr[o+1]=ay;dynArr[o+2]=az;dynArr[o+3]=c[0]*k;dynArr[o+4]=c[1]*k;dynArr[o+5]=c[2]*k;
+  dynArr[o+6]=bx;dynArr[o+7]=by;dynArr[o+8]=bz;dynArr[o+9]=c[0]*k;dynArr[o+10]=c[1]*k;dynArr[o+11]=c[2]*k;
+  dn++;
+}
+function flush(width,fogOn,fogEnd){
+  if(!dn)return;
+  gl.bindVertexArray(dyn.vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER,dyn.buf);
+  gl.bufferData(gl.ARRAY_BUFFER,dynArr.subarray(0,dn*12),gl.DYNAMIC_DRAW);
+  setU(VIEW.VP,width,[1,1,1,1],fogOn,fogEnd);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,dn);
+  dn=0;
+}
+
+const PAL=[[0.40,0.95,1.0],[1.0,0.35,0.70],[1.0,0.75,0.25],[1.0,0.35,0.35],[1.0,1.0,1.0]];
+let MESH={};
+function buildAll(){
+  const cyan=grad([0.22,0.42,1.0],[0.35,0.95,1.0],0,5);
+  const red=grad([1.0,0.22,0.30],[1.0,0.60,0.50],0,5);
+  const mag=grad([1.0,0.25,0.60],[1.0,0.65,0.90],-0.5,0.7);
+  const amb=grad([1.0,0.50,0.12],[1.0,0.85,0.40],-1,1);
+  const teal=grad([0.10,0.45,0.75],[0.20,0.85,0.95],0,5);
+  MESH.player=buildRobot(cyan);
+  MESH.heavy=buildRobot(red);
+  MESH.dart=buildDart(mag);
+  MESH.turret=buildTurret(amb);
+  MESH.pillar=buildPillar(teal);
+  MESH.rock=buildRock(grad([0.10,0.45,0.75],[0.20,0.85,0.95],0,2));
+  MESH.mount=buildMountains();
+  dyn=makeMesh(null,true);
+}
+
+function drawRobot(R,base,pose,width,tint){
+  const body=M.mul(base,M.mul(M.T(0,1.9,0),M.mul(M.Rz(pose.roll),M.mul(M.Rx(pose.pitch),M.T(0,-1.9,0)))));
+  drawMesh(R.torso,body,width,tint,true);
+  for(let i=0;i<2;i++){
+    const s=i?1:-1,a=pose.a[i],b=pose.b[i];
+    const hipM=M.mul(base,M.mul(M.T(s*0.42,1.9,0),M.mul(M.Rx(a),M.T(-s*0.42,-1.9,0))));
+    drawMesh(R.thigh[i],hipM,width,tint,true);
+    const kneeM=M.mul(hipM,M.mul(M.T(s*0.42,1.0,0),M.mul(M.Rx(b),M.T(-s*0.42,-1.0,0))));
+    drawMesh(R.shin[i],kneeM,width,tint,true);
+  }
+}
+
+/* ---- カメラと視覚用の状態(ゲーム状態には含めない) ---- */
+const vis={camX:0,camY:3.6,yaw:0};
+const GROUND=[0.05,0.30,0.50];
+const GROUND_HI=[0.09,0.46,0.72];
+
+function render(S,mode){
+  const W=cv.width,H=cv.height;
+  VIEW.W=W;VIEW.H=H;
+  gl.viewport(0,0,W,H);
+  gl.clearColor(0.004,0.008,0.02,1);gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(prog);
+  const asp=W/H,ty=Math.max(0.52,0.92/asp);
+  const p=S.p;
+  vis.camX+=(p.x*0.3-vis.camX)*0.1;
+  vis.camY+=((3.6+p.y*0.22)-vis.camY)*0.08;
+  const sh=S.shake>0?S.shake*0.025:0;
+  const cx=vis.camX+(sh?(Math.random()-0.5)*sh*6:0),cy=vis.camY+(sh?(Math.random()-0.5)*sh*6:0);
+  VIEW.VP=M.mul(M.persp(ty,asp,0.2,260,0.2),M.T(-cx,-cy,0));
+
+  /* 山のシルエットと地平線(霧なし・視差は小さく) */
+  drawMesh(MESH.mount,M.T(vis.camX*0.92,0,0),1.6,[1,1,1,1],false);
+
+  /* 地面のワイヤー格子 */
+  for(let i=-15;i<=15;i++){
+    const x=i*4,c=(i%5===0)?GROUND_HI:GROUND;
+    dl(x,0,1.5,x,0,205,c);
+  }
+  for(let k=1;k<=51;k++){
+    const z=k*4-S.scroll;
+    if(z<1)continue;
+    dl(-62,0,z,62,0,z,GROUND);
+  }
+  flush(1.4,true,115);
+
+  /* 背景の障害物 */
+  for(const o of S.sc){
+    drawMesh(o.t==='pil'?MESH.pillar:MESH.rock,M.T(o.x,0,o.z),1.8,[1,1,1,1],true);
+  }
+
+  /* 敵 */
+  for(const e of S.en){
+    if(e.hp<=0)continue;
+    const tint=e.flash>0?[2.2,2.2,2.2,1]:[1,1,1,1];
+    if(e.type==='dart'){
+      const rz=Math.cos(S.t*0.04+e.ph)*0.5;
+      drawMesh(MESH.dart,M.mul(M.T(e.x,e.y,e.z),M.Rz(rz)),2,tint,true);
+      dl(e.x,0.02,e.z,e.x,e.y-0.6,e.z,[0.5,0.15,0.3],1);
+      for(let i=0;i<10;i++){
+        const a=i/10*6.2832,b=(i+1)/10*6.2832;
+        dl(e.x+Math.cos(a)*1.2,0.02,e.z+Math.sin(a)*1.2,e.x+Math.cos(b)*1.2,0.02,e.z+Math.sin(b)*1.2,[0.7,0.2,0.45],1);
+      }
+    }else if(e.type==='turret'){
+      drawMesh(MESH.turret,M.T(e.x,e.y,e.z),2,tint,true);
+    }else{
+      const bob=Math.sin(S.t*0.05+e.ph)*0.15;
+      const base=M.mul(M.T(e.x,e.y-3.2+bob,e.z),M.mul(M.S(1.4,1.4,1.4),M.Ry(Math.PI)));
+      const ph=S.t*0.08;
+      drawRobot(MESH.heavy,base,{roll:Math.sin(ph)*0.05,pitch:0.05,a:[Math.sin(ph)*0.12,-Math.sin(ph)*0.12],b:[0.1,0.1]},2.1,tint);
+    }
+  }
+
+  /* プレイヤー */
+  if(!S.over){
+    let tgt=p.lock?findEn(S,p.lock):null;
+    const air=clamp(p.y/0.6,0,1);
+    const ph=S.t*0.33;
+    const aG=[Math.sin(ph)*0.7,Math.sin(ph+Math.PI)*0.7];
+    const bG=[Math.max(0,-Math.sin(ph-0.9))*0.9,Math.max(0,-Math.sin(ph+Math.PI-0.9))*0.9];
+    const aA=[-0.25,0.35],bA=[0.2,0.55];
+    const pose={
+      roll:-clamp(p.vx,-0.45,0.45)*0.5,
+      pitch:0.12+(p.dash>0?0.35:0)-p.vy*0.25,
+      a:[aG[0]*(1-air)+aA[0]*air,aG[1]*(1-air)+aA[1]*air],
+      b:[bG[0]*(1-air)+bA[0]*air,bG[1]*(1-air)+bA[1]*air]
+    };
+    const blink=(p.inv>0&&((S.t>>2)&1))?0.25:1;
+    const base=M.mul(M.T(p.x,p.y,C.PZ),M.Ry(p.yaw));
+    drawRobot(MESH.player,base,pose,2.0,[1,1,1,blink]);
+    /* 地面の影(高度の手がかり) */
+    const sr=1.5/(1+p.y*0.12),sk=0.8/(1+p.y*0.2);
+    for(let i=0;i<14;i++){
+      const a=i/14*6.2832,b=(i+1)/14*6.2832;
+      dl(p.x+Math.cos(a)*sr,0.02,C.PZ+Math.sin(a)*sr*1.3,p.x+Math.cos(b)*sr,0.02,C.PZ+Math.sin(b)*sr*1.3,[0.25,0.7,1.0],sk);
+    }
+    /* ロックオン枠 */
+    if(tgt){
+      const h=tgt.r*1.25*(1+0.06*Math.sin(S.t*0.3)),l=h*0.45,z=tgt.z-tgt.r,c=[1.0,0.85,0.35];
+      for(const sx of[-1,1])for(const sy of[-1,1]){
+        const X=tgt.x+sx*h,Y=tgt.y+sy*h;
+        dl(X,Y,z,X-sx*l,Y,z,c,1.2);
+        dl(X,Y,z,X,Y-sy*l,z,c,1.2);
+      }
+    }
+  }
+
+  /* 弾 */
+  for(const b of S.bl){
+    const k=b.k==='A'?3:2.2,c=b.k==='A'?[0.7,1.0,1.0]:[1.0,0.95,0.6];
+    const m=Math.hypot(b.vx,b.vy,b.vz)||1;
+    dl(b.x,b.y,b.z,b.x-b.vx/m*k,b.y-b.vy/m*k,b.z-b.vz/m*k,c,1.3);
+    if(b.k==='B'){const q=0.35;dl(b.x-q,b.y,b.z,b.x+q,b.y,b.z,c);dl(b.x,b.y-q,b.z,b.x,b.y+q,b.z,c);}
+  }
+  for(const b of S.eb){
+    const q=0.55,c=[1.0,0.35,0.55];
+    dl(b.x-q,b.y,b.z,b.x,b.y+q,b.z,c);dl(b.x,b.y+q,b.z,b.x+q,b.y,b.z,c);
+    dl(b.x+q,b.y,b.z,b.x,b.y-q,b.z,c);dl(b.x,b.y-q,b.z,b.x-q,b.y,b.z,c);
+    dl(b.x,b.y,b.z-q,b.x,b.y,b.z+q,c);
+  }
+  /* 破片と衝撃輪 */
+  for(const f of S.fx){
+    const c=PAL[f.c],k=f.life/f.max;
+    if(f.k==='s'){
+      dl(f.x,f.y,f.z,f.x-f.vx*3,f.y-f.vy*3,f.z-f.vz*3,c,Math.min(1,k*1.6));
+    }else{
+      const n=16;
+      for(let i=0;i<n;i++){
+        const a=i/n*6.2832,b=(i+1)/n*6.2832;
+        dl(f.x+Math.cos(a)*f.r,f.y+Math.sin(a)*f.r,f.z,f.x+Math.cos(b)*f.r,f.y+Math.sin(b)*f.r,f.z,c,k);
+      }
+    }
+  }
+  flush(2.0,true);
+
+  /* 発光用キャンバスへ縮小コピー */
+  x1.clearRect(0,0,g1.width,g1.height);x1.drawImage(cv,0,0,g1.width,g1.height);
+  x2.clearRect(0,0,g2.width,g2.height);x2.drawImage(cv,0,0,g2.width,g2.height);
+}
+
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=Math.max(2,Math.floor(window.innerWidth*dpr)),h=Math.max(2,Math.floor(window.innerHeight*dpr));
+  if(cv.width!==w||cv.height!==h){cv.width=w;cv.height=h;}
+  g1.width=Math.max(2,w>>2);g1.height=Math.max(2,h>>2);
+  g2.width=Math.max(2,Math.round(w/12));g2.height=Math.max(2,Math.round(h/12));
+  VIEW.dpr=dpr;
+}
+
+/* ============================================================
+   入力
+   ============================================================ */
+const keys=new Set();
+const BLOCK=new Set(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
+let mode='ready';
+let S=newState(20261006);
+
+function readInput(){
+  const k=c=>keys.has(c)?1:0;
+  const i={
+    lx:k('KeyD')-k('KeyA'),ly:k('KeyW')-k('KeyS'),
+    rx:k('ArrowRight')-k('ArrowLeft'),ry:k('ArrowUp')-k('ArrowDown'),
+    dL:keys.has('KeyQ')||keys.has('ShiftLeft'),dR:keys.has('KeyE')||keys.has('ShiftRight'),
+    tA:keys.has('KeyZ')||keys.has('KeyJ'),tB:keys.has('KeyX')||keys.has('KeyK'),
+    jump:keys.has('Space')
+  };
+  let gp=null;
+  try{const pads=navigator.getGamepads?navigator.getGamepads():[];for(const g of pads){if(g&&g.connected){gp=g;break;}}}catch(e){}
+  if(gp){
+    const dz=v=>Math.abs(v)<0.2?0:v;
+    const ax=gp.axes||[],bt=gp.buttons||[];
+    const pr=n=>bt[n]&&(bt[n].pressed||bt[n].value>0.3);
+    const lx=dz(ax[0]||0),ly=-dz(ax[1]||0),rx=dz(ax[2]||0),ry=-dz(ax[3]||0);
+    if(Math.abs(lx)>Math.abs(i.lx))i.lx=lx;
+    if(Math.abs(ly)>Math.abs(i.ly))i.ly=ly;
+    if(Math.abs(rx)>Math.abs(i.rx))i.rx=rx;
+    if(Math.abs(ry)>Math.abs(i.ry))i.ry=ry;
+    i.dL=i.dL||!!pr(4);i.dR=i.dR||!!pr(5);
+    i.tA=i.tA||!!pr(6);i.tB=i.tB||!!pr(7);
+    i.jump=i.jump||!!pr(0);
+  }
+  return i;
+}
+
+/* ============================================================
+   画面表示(HUD・オーバーレイ)
+   ============================================================ */
+const el={score:$('score'),dist:$('dist'),hp:$('hpfill'),pips:$('pips'),lock:$('lock'),st:$('st'),
+  ov:$('ov'),ovt:$('ovt'),ovs:$('ovs'),ovr:$('ovr'),go:$('go')};
+for(let i=0;i<C.B_MAX;i++){el.pips.appendChild(document.createElement('i'));}
+const hudPrev={};
+function setText(node,key,v){if(hudPrev[key]!==v){hudPrev[key]=v;node.innerHTML=v;}}
+function hud(){
+  const p=S.p;
+  setText(el.score,'sc',String(S.score).padStart(6,'0'));
+  setText(el.dist,'di',String(Math.floor(S.dist)).padStart(4,'0')+'<span style="font-size:12px"> m</span>');
+  const hpPct=Math.round(p.hp/C.HP*100);
+  if(hudPrev.hp!==hpPct){hudPrev.hp=hpPct;el.hp.style.width='calc('+hpPct+'% - 2px)';el.hp.classList.toggle('low',hpPct<=30);}
+  if(hudPrev.am!==p.ammoB){hudPrev.am=p.ammoB;const ch=el.pips.children;for(let i=0;i<ch.length;i++)ch[i].className=i<p.ammoB?'on':'';}
+  const lk=p.lock?1:0;
+  if(hudPrev.lk!==lk){hudPrev.lk=lk;el.lock.textContent=lk?'LOCK ON':'NO LOCK';el.lock.className=lk?'on':'';}
+}
+function showOverlay(kind){
+  el.ov.hidden=false;
+  if(kind==='ready'){
+    el.ovt.textContent='ワイヤー・ストライカー';
+    el.ovs.hidden=false;el.ovr.hidden=true;el.go.textContent='START [Enter]';
+  }else if(kind==='pause'){
+    el.ovt.textContent='PAUSED';el.ovs.hidden=true;el.ovr.hidden=true;el.go.textContent='RESUME [Enter]';
+  }else{
+    el.ovt.textContent='GAME OVER';el.ovs.hidden=true;el.ovr.hidden=false;
+    el.ovr.textContent='SCORE '+String(S.score).padStart(6,'0')+'   撃墜 '+S.kills+'   '+Math.floor(S.dist)+' m';
+    el.go.textContent='RETRY [Enter]';
+  }
+  el.go.focus({preventScroll:true});
+}
+function startOrResume(){
+  if(!ready)return;
+  if(mode==='over'||mode==='ready'){S=newState((Date.now()&0x7fffffff)|0);}
+  mode='play';el.ov.hidden=true;
+  try{window.focus();}catch(e){}
+}
+function pause(){if(mode==='play'){mode='pause';showOverlay('pause');}}
+
+window.addEventListener('keydown',e=>{
+  if(BLOCK.has(e.code))e.preventDefault();
+  if(e.repeat&&(e.code==='Enter'||e.code==='KeyP'||e.code==='Escape'))return;
+  keys.add(e.code);
+  if(e.code==='Enter'&&mode!=='play'){e.preventDefault();startOrResume();}
+  else if((e.code==='KeyP'||e.code==='Escape')){if(mode==='play')pause();else if(mode==='pause')startOrResume();}
+});
+window.addEventListener('keyup',e=>{keys.delete(e.code);});
+window.addEventListener('blur',()=>{keys.clear();pause();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+el.go.addEventListener('click',startOrResume);
+$('pausebtn').addEventListener('click',()=>{if(mode==='play')pause();else if(mode==='pause')startOrResume();});
+window.addEventListener('resize',resize);
+cv.addEventListener('webglcontextlost',e=>{e.preventDefault();glLost=true;});
+cv.addEventListener('webglcontextrestored',()=>{
+  try{initGL();buildAll();resize();glLost=false;}
+  catch(err){console.error(err);ready=false;}
+});
+
+/* ============================================================
+   メインループ(固定60Hz)
+   ============================================================ */
+const STEP=1000/60;
+let last=performance.now(),acc=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=Math.min(100,now-last);last=now;
+  if(mode==='play'){
+    acc+=dt;let n=0;
+    while(acc>=STEP&&n<5){step(S,readInput());acc-=STEP;n++;}
+    if(n>=5)acc=0;
+    if(S.over&&S.overT>110){mode='over';showOverlay('over');}
+  }else if(mode==='ready'){
+    S.t++;S.scroll=(S.scroll+C.SCROLL)%4;
+  }
+  hud();
+  if(ready&&!glLost)render(S,mode);
+}
+
+/* ============================================================
+   起動
+   ============================================================ */
+if(ready){
+  try{initGL();buildAll();resize();}
+  catch(err){ready=false;console.error(err);}
+}
+if(!ready){
+  el.ovs.textContent='このブラウザではWebGL2を利用できません。対応ブラウザでお試しください。';
+  el.go.disabled=true;
+}
+const tr=selfTest();
+el.st.textContent='決定性テスト '+(tr.ok?'OK':'NG')+' #'+tr.hash.toString(16).padStart(8,'0')+' / '+tr.frames+'f / 撃墜'+tr.kills;
+showOverlay('ready');
+requestAnimationFrame(frame);
+if(location.hash==='#debug')window.__ws={get S(){return S;},step,newState,selfTest,hash,get mode(){return mode;}};
+})();
+</script>

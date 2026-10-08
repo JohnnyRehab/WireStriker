@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "name": "default",
+  "rules": {
+    "playerHp": 100,
+    "scrollSpeed": 0.55,
+    "missileMax": 12,
+    "enemyHpMul": 1,
+    "enemyBulletSpeedMul": 1,
+    "enemyFireRateMul": 1,
+    "spawnIntervalMul": 1,
+    "contactDamage": 18,
+    "enemyBulletDamage": 10,
+    "obstacleDamage": 12
+  },
+  "player": {
+    "xBound": 9.5,
+    "yMax": 8,
+    "accel": 0.05,
+    "maxSpeed": 0.45,
+    "thrust": 0.03,
+    "gravity": 0.018,
+    "vyMax": 0.42,
+    "fallSpeedMax": 0.5,
+    "descendRate": 0.008,
+    "jump": 0.42,
+    "jumpGroundTol": 0.3,
+    "dashFrames": 11,
+    "dashSpeed": 0.95,
+    "dashClimb": 0.45,
+    "dashCarry": 0.5,
+    "dashLag": 12,
+    "lagDrag": 0.7,
+    "invFrames": 60,
+    "lockRange": 120,
+    "lockCone": 0.45
+  },
+  "weapons": {
+    "vulcan": {
+      "cooldown": 5,
+      "speed": 2,
+      "life": 80,
+      "damage": 1,
+      "homing": 0.1,
+      "jitter": 0.03
+    },
+    "missile": {
+      "cooldown": 28,
+      "speed": 1.3,
+      "life": 110,
+      "damage": 5,
+      "homing": 0.18,
+      "regenFrames": 80,
+      "salvo": 3,
+      "spread": 0.32,
+      "lift": 0.12
+    }
+  },
+  "enemies": {
+    "dart": {
+      "mesh": "dart",
+      "hp": 2,
+      "radius": 1.6,
+      "score": 100,
+      "color": 1,
+      "contact": true,
+      "big": false,
+      "spawn": {
+        "x": {
+          "center": 0,
+          "spread": 14
+        },
+        "y": {
+          "min": 1.5,
+          "range": 5.5
+        },
+        "phase": {
+          "range": 6
+        },
+        "fireDelay": {
+          "min": 20,
+          "range": 50
+        }
+      },
+      "ai": {
+        "kind": "dart",
+        "speedZ": 0.5,
+        "swayX": {
+          "amp": 2.5,
+          "freq": 0.04
+        },
+        "swayY": {
+          "amp": 0.8,
+          "freq": 0.07
+        },
+        "fire": {
+          "zMin": 35,
+          "zMax": 110,
+          "bulletSpeed": 0.8
+        }
+      }
+    },
+    "turret": {
+      "mesh": "turret",
+      "hp": 3,
+      "radius": 1.7,
+      "score": 150,
+      "color": 2,
+      "contact": true,
+      "big": false,
+      "spawn": {
+        "x": {
+          "center": 0,
+          "spread": 22
+        },
+        "y": 0.9,
+        "phase": 0,
+        "fireDelay": {
+          "min": 40,
+          "range": 60
+        }
+      },
+      "ai": {
+        "kind": "turret",
+        "fire": {
+          "zMin": 30,
+          "zMax": 100,
+          "bulletSpeed": 0.85,
+          "reload": 110
+        }
+      }
+    },
+    "heavy": {
+      "mesh": "heavy",
+      "hp": 14,
+      "radius": 3,
+      "score": 800,
+      "color": 3,
+      "contact": false,
+      "big": true,
+      "spawn": {
+        "x": 0,
+        "y": 3.2,
+        "phase": {
+          "range": 6
+        },
+        "fireDelay": 60
+      },
+      "ai": {
+        "kind": "heavy",
+        "approachSpeed": 0.35,
+        "stopZ": 55,
+        "swayAmp": 7,
+        "swayFreq": 0.02,
+        "burst": {
+          "count": 3,
+          "reload": 130,
+          "gap": 8,
+          "bulletSpeed": 0.9
+        }
+      }
+    }
+  },
+  "stage": {
+    "spawnZ": 140,
+    "sceneryLead": 10,
+    "scenery": {
+      "pil": {
+        "mesh": "pillar",
+        "y": 0,
+        "height": 5,
+        "radius": 0.9
+      },
+      "pyr": {
+        "mesh": "rock",
+        "y": 0,
+        "height": 2,
+        "radius": 1.6
+      },
+      "flt": {
+        "mesh": "crystal",
+        "y": 5,
+        "height": 3.5,
+        "radius": 1.8
+      }
+    },
+    "events": [
+      {
+        "op": "procedural",
+        "t": 0,
+        "until": null,
+        "enemies": [
+          {
+            "enemy": "dart",
+            "weight": 0.62
+          },
+          {
+            "enemy": "turret",
+            "weight": 0.38
+          }
+        ],
+        "firstSpawn": 50,
+        "interval": {
+          "base": 72,
+          "floor": 26,
+          "decay": 45,
+          "jitter": 30
+        },
+        "elite": {
+          "enemy": "heavy",
+          "first": 1000,
+          "minTime": 600,
+          "cooldown": 1500
+        },
+        "scenery": {
+          "firstSpawn": 10,
+          "base": 16,
+          "jitter": 26,
+          "laneChance": 0.4,
+          "laneSpread": 22,
+          "sideMin": 12,
+          "sideRange": 16,
+          "primary": "pil",
+          "primaryChance": 0.55,
+          "secondary": "pyr",
+          "air": {
+            "kind": "flt",
+            "chance": 0.18,
+            "spread": 16
+          }
+        }
+      }
+    ]
+  }
+}
